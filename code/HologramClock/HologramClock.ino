@@ -14,22 +14,15 @@
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <WiFi.h>
 
-#include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <time.h>
 
-// Set offset time in seconds to adjust for your timezone, for example:
-// GMT +1 = 3600
-// GMT +8 = 28800
-// GMT -1 = -3600
-// GMT 0 = 0
-int timeOffset = 3600;
+const char* ntpServer = "europe.pool.ntp.org";
 
-// define NTP update interval in seconds
-int updateInterval = 60000;
-
-// Define NTP Client to get time
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", timeOffset, updateInterval);
+// Die Definition für Deutschland (Sommer-/Winterzeit automatisch)
+// P1OT = Central European Time, M3.5.0 = März, letzte Woche, Sonntag
+// M10.5.0 = Oktober, letzte Woche, Sonntag
+const char* TZ_INFO = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 Adafruit_7segment matrix = Adafruit_7segment();
 
@@ -52,13 +45,16 @@ void demo_mode() {
 
 // show time
 void showTime() {
-  timeClient.update();
-  Serial.println(timeClient.getFormattedTime());
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Zeit konnte nicht abgefragt werden");
+    return;
+  }
 
-  uint16_t toh = timeClient.getHours() / 10;
-  uint16_t hour = timeClient.getHours() % 10;
-  uint16_t tom = timeClient.getMinutes() / 10;
-  uint16_t min = timeClient.getMinutes() % 10;
+  uint16_t toh = timeinfo.tm_hour / 10;
+  uint16_t hour = timeinfo.tm_hour % 10;
+  uint16_t tom = timeinfo.tm_min / 10;
+  uint16_t min = timeinfo.tm_min % 10;
 
   matrix.writeDigitNum(0, toh, false);
   matrix.writeDigitNum(1, hour, false);
@@ -97,8 +93,10 @@ void setup() {
     delay(1000);
   }
 
-  // Initialize a NTPClient to get time
-  timeClient.begin();
+  // Konfiguriere die Zeit mit dem TZ-String
+  configTime(0, 0, ntpServer);
+  setenv("TZ", TZ_INFO, 1);
+  tzset();
 
 }
 
